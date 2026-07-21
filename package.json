@@ -1,0 +1,15 @@
+{
+  "name": "bdi-central-hub",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "cd client && npm install && cd ../api && npm install",
+    "dev:client": "cd client && npm run dev",
+    "dev:api": "cd api && func start",
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:api\"",
+    "build": "cd client && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "bdi-central-hub-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/functions/*.js",
+  "scripts": {
+    "start": "func start"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0",
+    "@azure/identity": "^4.2.0",
+    "mssql": "^11.0.0"
+  }
+}
