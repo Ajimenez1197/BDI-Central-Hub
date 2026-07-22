@@ -2,6 +2,7 @@ import { useState } from "react";
 import Department from "./components/Department.jsx";
 import DigitalTab from "./components/DigitalTab.jsx";
 import BlueBooksTab from "./components/BlueBooksTab.jsx";
+import QBRTab from "./components/QBRTab.jsx";
 
 /**
  * Central Hub is organized by department (top-level tabs). Each department owns
@@ -26,6 +27,7 @@ const DEPARTMENTS = [
     id: "client-service",
     label: "Client Service",
     reports: [
+      { id: "qbr", label: "Quarterly Business Report", component: QBRTab },
       { id: "blue-books", label: "Blue Books", component: BlueBooksTab },
     ],
   },

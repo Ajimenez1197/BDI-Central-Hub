@@ -109,6 +109,43 @@ export function useBlueBook() {
 }
 
 /**
+ * Quarterly Business Report (Client Service tab).
+ * run({ clientId }) → POST /api/qbr. `data` holds every section's datasets.
+ */
+export function useQBR() {
+  const emptyState = {
+    status: "idle", // idle | loading | success | error
+    clientName: null,
+    data: null,
+    error: null,
+  };
+  const [state, setState] = useState(emptyState);
+
+  const run = useCallback(async ({ clientId }) => {
+    setState({ ...emptyState, status: "loading" });
+    try {
+      const res = await apiFetch("/api/qbr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      });
+      setState({
+        status: "success",
+        clientName: res.clientName || null,
+        data: res.data || null,
+        error: null,
+      });
+    } catch (err) {
+      setState({ ...emptyState, status: "error", error: err.message });
+    }
+  }, []);
+
+  const reset = useCallback(() => setState(emptyState), []);
+
+  return { ...state, run, reset };
+}
+
+/**
  * New & Reactivated Donors report (Digital tab).
  * run({ clientId, view }) → POST /api/new-reactivated
  */
