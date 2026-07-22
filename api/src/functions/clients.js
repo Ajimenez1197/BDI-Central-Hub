@@ -1,8 +1,8 @@
 /**
- * clients.js — Production-client roster for the Client dropdown.
+ * clients.js — Client roster for the Client dropdowns.
  *
- * GET /api/clients
- * Returns: { clients: [{ id, name, fyStart }] }  (Production = 1 only)
+ * GET /api/clients            → { clients: [{ id, name, fyStart }] } (Production = 1)
+ * GET /api/clients?source=all → { clients: ["ABC", "DEF", ...] }     (full roster)
  */
 
 import { app } from "@azure/functions";
@@ -14,7 +14,8 @@ app.http("clients", {
   route: "clients",
   handler: async (request, context) => {
     try {
-      const clients = await getClientList();
+      const source = request.query.get("source") || "";
+      const clients = await getClientList(source);
       return { status: 200, jsonBody: { clients } };
     } catch (err) {
       context.error("Failed to fetch client list:", err);

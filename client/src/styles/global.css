@@ -126,6 +126,40 @@ body {
   background: var(--bdi-green);
 }
 
+/* ── Report Sub-Navigation (per department) ────────────────────── */
+.subtab-nav {
+  display: flex;
+  gap: 4px;
+  padding: 8px 24px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.subtab-btn {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: 1px solid transparent;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.subtab-btn:hover:not(.active) {
+  background: var(--bdi-green-light);
+  color: var(--text-primary);
+}
+
+.subtab-btn.active {
+  background: var(--bdi-green);
+  color: #ffffff;
+}
+
 /* ── Toolbar ───────────────────────────────────────────────────── */
 .toolbar {
   display: flex;
