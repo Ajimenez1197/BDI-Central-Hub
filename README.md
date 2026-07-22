@@ -10,7 +10,7 @@ same stack and authentication.
 |---|---|
 | **Digital** | Live — **New & Reactivated Donors** report |
 | Project Management | Placeholder |
-| Client Service | Placeholder |
+| **Client Service** | Live — **Donor Pyramid** report |
 | Creative | Placeholder |
 
 ## Architecture
@@ -42,6 +42,30 @@ reporting output is limited to gifts from **Jan 2023** onward.
   each client's `P_Clients.FY_Month_Start`. Fiscal years are labeled by their
   end year (e.g. a July-start client's Jul 2023–Jun 2024 year is `FY2024`).
 - **Download CSV** of whichever view is on screen.
+
+## Client Service › Donor Pyramid
+
+Buckets each donor by their **cumulative giving in the window** — **Mass**
+`$0.01–999.99`, **Middle** `$1,000–9,999.99`, **Major** `$10,000+` (donors
+netting ≤ $0 are excluded) — then charts the distribution as stacked
+trapezoids.
+
+- **Client filter** — labeled **Client**; `P_Clients.Production = 1` only.
+- **Giving period** toggle, all ending at today (`GETDATE()`):
+  - **Calendar Year** — from Jan 1 of the current year.
+  - **Rolling 12 Mo** — the trailing 12 months.
+  - **FYTD** — from the client's `P_Clients.FY_Month_Start`.
+- **4 charts** — Client and Benchmark, each in a donor-count and a revenue
+  version. The **benchmark** pools every `Production = 1` client (including the
+  selected one); each donor is bucketed by their giving to each client, and
+  FYTD uses each client's own fiscal-year start.
+- **Chart shape** — tiers always stack Major (top) → Middle → Mass (bottom) as
+  flat-topped trapezoids whose widths track each tier's **share of revenue**, so
+  every tier stays visible: a pyramid when Mass leads, an inverted trapezoid
+  when Major leads, a box when they're even. Labels show each chart's own metric
+  (donor counts + donor % vs. dollars + revenue %).
+- **Download CSV** — all four series (client + benchmark, donors + revenue),
+  one row per tier plus a totals row.
 
 ## Setup
 

@@ -151,3 +151,135 @@ export async function queryNewReactivated(clientId, view, fyStart) {
 
   return result.recordset;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Donor Pyramid (Client Service tab)
+ * ───────────────────────────────────────────────────────────────────────── */
+
+function isoDate(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Resolve the [start, end] gift-date window for a giving period. `end` is
+ * always today; `start` depends on the mode:
+ *   "cy"        → January 1 of the current calendar year
+ *   "rolling12" → the same day, 12 months ago (trailing year)
+ *   "fytd"      → the client's fiscal-year start (needs fyStart, 1-12)
+ *
+ * @param {"cy"|"rolling12"|"fytd"} period
+ * @param {number} [fyStart] - P_Clients.FY_Month_Start, required for "fytd"
+ * @param {Date}   [now]
+ * @returns {{ start:string, end:string, mode:string, label:string }}
+ */
+export function resolveWindow(period, fyStart, now = new Date()) {
+  const end = isoDate(now);
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1; // 1-12
+
+  if (period === "rolling12") {
+    const s = new Date(Date.UTC(year - 1, now.getUTCMonth(), now.getUTCDate()));
+    return { start: isoDate(s), end, mode: period, label: "Rolling 12 months" };
+  }
+  if (period === "fytd") {
+    const startYear = month >= fyStart ? year : year - 1;
+    const s = new Date(Date.UTC(startYear, fyStart - 1, 1));
+    return { start: isoDate(s), end, mode: period, label: "Fiscal year to date" };
+  }
+  // default: calendar year to date
+  return { start: `${year}-01-01`, end, mode: "cy", label: `Calendar year ${year}` };
+}
+
+// Bucket sums shared by both pyramid queries. Assumes a derived table `DT`
+// with one row per donor carrying a numeric `Total`. Tiers:
+//   Mass   $0.01–999.99   (Total < 1000, with Total >= 0.01 enforced upstream)
+//   Middle $1,000–9,999.99
+//   Major  $10,000+
+const PYRAMID_BUCKET_SUMS = `
+      SUM(CASE WHEN Total < 1000                    THEN 1     ELSE 0 END) AS MassDonors,
+      SUM(CASE WHEN Total >= 1000 AND Total < 10000 THEN 1     ELSE 0 END) AS MiddleDonors,
+      SUM(CASE WHEN Total >= 10000                  THEN 1     ELSE 0 END) AS MajorDonors,
+      SUM(CASE WHEN Total < 1000                    THEN Total ELSE 0 END) AS MassRevenue,
+      SUM(CASE WHEN Total >= 1000 AND Total < 10000 THEN Total ELSE 0 END) AS MiddleRevenue,
+      SUM(CASE WHEN Total >= 10000                  THEN Total ELSE 0 END) AS MajorRevenue`;
+
+// Shape the flat bucket row into structured tiers plus totals.
+function normalizeBuckets(row) {
+  const num = (v) => Number(v) || 0;
+  const buckets = {
+    mass:   { donors: num(row.MassDonors),   revenue: num(row.MassRevenue) },
+    middle: { donors: num(row.MiddleDonors), revenue: num(row.MiddleRevenue) },
+    major:  { donors: num(row.MajorDonors),  revenue: num(row.MajorRevenue) },
+  };
+  return {
+    buckets,
+    totalDonors: buckets.mass.donors + buckets.middle.donors + buckets.major.donors,
+    totalRevenue: buckets.mass.revenue + buckets.middle.revenue + buckets.major.revenue,
+  };
+}
+
+/**
+ * Donor Pyramid — bucket a single client's donors by cumulative giving in the
+ * window, returning donor counts and revenue per tier (Mass/Middle/Major).
+ * Donors whose net giving in the window is <= 0 are excluded (HAVING >= 0.01).
+ */
+export async function queryDonorPyramid(clientId, start, end) {
+  const pool = await getPool();
+  const result = await pool
+    .request()
+    .input("ClientID", sql.NVarChar, clientId)
+    .input("Start", sql.Date, start)
+    .input("End", sql.Date, end)
+    .query(`
+      SELECT ${PYRAMID_BUCKET_SUMS}
+      FROM (
+        SELECT DONOR_ID, SUM(AMOUNT) AS Total
+        FROM Gifts
+        WHERE CLIENT_ID = @ClientID
+          AND GIFT_DATE >= @Start AND GIFT_DATE <= @End
+        GROUP BY DONOR_ID
+        HAVING SUM(AMOUNT) >= 0.01
+      ) DT
+    `);
+  return normalizeBuckets(result.recordset[0] || {});
+}
+
+/**
+ * Donor Pyramid benchmark — the same tiering pooled across every
+ * Production = 1 client (each donor bucketed by their giving to each client,
+ * so the same person at two clients is two records). For "fytd" each client
+ * uses its own fiscal-year start; "cy"/"rolling12" share the single window
+ * from resolveWindow. @End carries today, which also drives the fiscal math.
+ */
+export async function queryDonorPyramidBenchmark(period, start, end) {
+  const pool = await getPool();
+  const isFytd = period === "fytd";
+
+  // Per-client fiscal-year start date, else the shared calendar-window start.
+  const startExpr = isFytd
+    ? `DATEFROMPARTS(
+           YEAR(@End) - CASE WHEN MONTH(@End) >= P.FY_Month_Start THEN 0 ELSE 1 END,
+           P.FY_Month_Start, 1)`
+    : `@Start`;
+
+  const request = pool.request().input("End", sql.Date, end);
+  if (!isFytd) request.input("Start", sql.Date, start);
+
+  const result = await request.query(`
+    SELECT
+      ${PYRAMID_BUCKET_SUMS},
+      (SELECT COUNT(*) FROM P_Clients WHERE Production = 1) AS ClientCount
+    FROM (
+      SELECT G.CLIENT_ID, G.DONOR_ID, SUM(G.AMOUNT) AS Total
+      FROM Gifts G
+      JOIN P_Clients P
+        ON P.Client_ID = G.CLIENT_ID AND P.Production = 1
+      WHERE G.GIFT_DATE >= ${startExpr} AND G.GIFT_DATE <= @End
+      GROUP BY G.CLIENT_ID, G.DONOR_ID
+      HAVING SUM(G.AMOUNT) >= 0.01
+    ) DT
+  `);
+
+  const row = result.recordset[0] || {};
+  return { ...normalizeBuckets(row), clientCount: Number(row.ClientCount) || 0 };
+}

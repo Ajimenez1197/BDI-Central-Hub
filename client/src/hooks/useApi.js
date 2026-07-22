@@ -71,3 +71,30 @@ export function useNewReactivated() {
 
   return { ...state, run, reset };
 }
+
+/**
+ * Donor Pyramid report (Client Service tab).
+ * run({ clientId, period }) → POST /api/donor-pyramid
+ */
+export function useDonorPyramid() {
+  const emptyState = { status: "idle", data: null, error: null };
+  const [state, setState] = useState(emptyState);
+
+  const run = useCallback(async ({ clientId, period }) => {
+    setState({ ...emptyState, status: "loading" });
+    try {
+      const data = await apiFetch("/api/donor-pyramid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, period }),
+      });
+      setState({ status: "success", data, error: null });
+    } catch (err) {
+      setState({ ...emptyState, status: "error", error: err.message });
+    }
+  }, []);
+
+  const reset = useCallback(() => setState(emptyState), []);
+
+  return { ...state, run, reset };
+}

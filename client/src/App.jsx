@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DigitalTab from "./components/DigitalTab.jsx";
+import ClientServiceTab from "./components/ClientServiceTab.jsx";
 import { PlaceholderTab } from "./components/shared.jsx";
 
 const TABS = [
@@ -38,7 +39,7 @@ export default function App() {
 
       {activeTab === "digital" && <DigitalTab />}
       {activeTab === "project-management" && <PlaceholderTab name="Project Management" />}
-      {activeTab === "client-service" && <PlaceholderTab name="Client Service" />}
+      {activeTab === "client-service" && <ClientServiceTab />}
       {activeTab === "creative" && <PlaceholderTab name="Creative" />}
     </div>
   );
