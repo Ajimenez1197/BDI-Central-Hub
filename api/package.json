@@ -10,6 +10,8 @@
   "dependencies": {
     "@azure/functions": "^4.5.0",
     "@azure/identity": "^4.2.0",
+    "@azure/storage-blob": "^12.17.0",
+    "exceljs": "^4.4.0",
     "mssql": "^11.0.0"
   }
 }

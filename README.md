@@ -6,11 +6,16 @@ same stack and authentication.
 
 ## Departments (tabs)
 
+Each department is a collection of **reports**, shown as a secondary sub-nav
+under the department tab. Add a report by dropping a component into that
+department's `reports` array in `client/src/App.jsx`; empty departments show a
+placeholder until their first report lands.
+
 | Tab | Status |
 |---|---|
 | **Digital** | Live — **New & Reactivated Donors** report |
 | Project Management | Placeholder |
-| **Client Service** | Live — **Donor Pyramid** report |
+| **Client Service** | Live — **QBR**, **Blue Books**, **Donor Pyramid** |
 | Creative | Placeholder |
 
 ## Architecture
@@ -67,6 +72,20 @@ trapezoids.
 - **Download CSV** — all four series (client + benchmark, donors + revenue),
   one row per tier plus a totals row.
 
+## Client Service › Blue Books
+
+For a selected **client** + **appeal**, computes per-RFM-segment
+response-rate and ROI (Mailed, Responses, Response %, Revenue, Cost, ROI),
+matching direct and matchback gifts against the appeal code. ROI cells are
+color-shaded (green > 1, yellow 0–1, red ≤ 0).
+
+- **Client filter** — the full `P_Clients` roster (`/api/clients?source=all`),
+  since Blue Books reports on historical data for any client.
+- **Appeal filter** — cultivation campaigns from `c_jobs`, grouped by the
+  per-client appeal-code length (see `api/src/lib/client-config.js`).
+- **Download Excel** — a styled `.xlsx` is written to blob storage and served
+  via a time-limited SAS URL.
+
 ## Setup
 
 ### Prerequisites
@@ -86,6 +105,8 @@ Set in the Static Web App **Application Settings** (and in
 | `AAD_TENANT_ID` | Entra tenant ID (service principal) |
 | `AAD_CLIENT_ID` | App registration client ID |
 | `AAD_CLIENT_SECRET` | App registration client secret |
+| `BLOB_CONNECTION_STRING` | Storage account connection string (Blue Books Excel export) |
+| `BLOB_CONTAINER` | Container/prefix for generated workbooks |
 
 `AAD_CLIENT_ID` / `AAD_CLIENT_SECRET` are also used by the Static Web App's
 Entra login (referenced in `staticwebapp.config.json`).

@@ -1,17 +1,49 @@
 import { useState } from "react";
+import Department from "./components/Department.jsx";
 import DigitalTab from "./components/DigitalTab.jsx";
 import ClientServiceTab from "./components/ClientServiceTab.jsx";
-import { PlaceholderTab } from "./components/shared.jsx";
+import BlueBooksTab from "./components/BlueBooksTab.jsx";
+import QBRTab from "./components/QBRTab.jsx";
 
-const TABS = [
-  { id: "digital", label: "Digital" },
-  { id: "project-management", label: "Project Management" },
-  { id: "client-service", label: "Client Service" },
-  { id: "creative", label: "Creative" },
+/**
+ * Central Hub is organized by department (top-level tabs). Each department owns
+ * a set of reports rendered as a secondary sub-nav (see Department.jsx). Add a
+ * report by dropping a component into the department's `reports` array; add a
+ * department by adding an entry here. Empty departments show a placeholder.
+ */
+const DEPARTMENTS = [
+  {
+    id: "digital",
+    label: "Digital",
+    reports: [
+      { id: "new-reactivated", label: "New & Reactivated Donors", component: DigitalTab },
+    ],
+  },
+  {
+    id: "project-management",
+    label: "Project Management",
+    reports: [],
+  },
+  {
+    id: "client-service",
+    label: "Client Service",
+    reports: [
+      { id: "qbr", label: "Quarterly Business Report", component: QBRTab },
+      { id: "blue-books", label: "Blue Books", component: BlueBooksTab },
+      { id: "donor-pyramid", label: "Donor Pyramid", component: ClientServiceTab },
+    ],
+  },
+  {
+    id: "creative",
+    label: "Creative",
+    reports: [],
+  },
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("digital");
+  const [activeDept, setActiveDept] = useState(DEPARTMENTS[0].id);
+
+  const department = DEPARTMENTS.find((d) => d.id === activeDept) || DEPARTMENTS[0];
 
   return (
     <div className="app">
@@ -25,22 +57,19 @@ export default function App() {
           <h1><span>Central Hub</span></h1>
         </div>
         <nav className="tab-nav">
-          {TABS.map((tab) => (
+          {DEPARTMENTS.map((dept) => (
             <button
-              key={tab.id}
-              className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
+              key={dept.id}
+              className={`tab-btn ${activeDept === dept.id ? "active" : ""}`}
+              onClick={() => setActiveDept(dept.id)}
             >
-              {tab.label}
+              {dept.label}
             </button>
           ))}
         </nav>
       </header>
 
-      {activeTab === "digital" && <DigitalTab />}
-      {activeTab === "project-management" && <PlaceholderTab name="Project Management" />}
-      {activeTab === "client-service" && <ClientServiceTab />}
-      {activeTab === "creative" && <PlaceholderTab name="Creative" />}
+      <Department key={department.id} department={department} />
     </div>
   );
 }

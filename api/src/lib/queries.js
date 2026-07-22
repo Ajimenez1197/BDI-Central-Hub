@@ -6,17 +6,28 @@
  */
 
 import { getPool } from "./sql.js";
+import { getAppealCodeLength } from "./client-config.js";
 import sql from "mssql";
 
 /**
- * Fetch the production-client roster for the Client dropdown.
- * Only clients flagged Production = 1 in P_Clients are returned.
- * FY_Month_Start comes along so the caller can label fiscal years.
+ * Fetch the client roster for the Client dropdown.
  *
- * @returns {Promise<{id:string, name:string, fyStart:number}[]>}
+ * @param {string} [source] - "all" pulls the full roster from P_Clients as a
+ *   flat array of Client_IDs (used by the Client Service Blue Book report, which
+ *   queries historical data for any client). The default pulls production
+ *   clients as objects ({ id, name, fyStart }) for the Digital reports.
+ * @returns {Promise<({id:string, name:string, fyStart:number}[])|string[]>}
  */
-export async function getClientList() {
+export async function getClientList(source = "") {
   const pool = await getPool();
+
+  if (source === "all") {
+    const result = await pool.request().query(
+      `SELECT DISTINCT Client_ID FROM P_Clients ORDER BY Client_ID`
+    );
+    return result.recordset.map((r) => r.Client_ID);
+  }
+
   const result = await pool.request().query(`
     SELECT Client_ID, Name, FY_Month_Start
     FROM P_Clients
@@ -28,6 +39,53 @@ export async function getClientList() {
     name: r.Name,
     fyStart: r.FY_Month_Start,
   }));
+}
+
+/**
+ * Fetch distinct Appeal ID prefixes for the Blue Book appeal dropdown.
+ *
+ * One row per appeal code (LEFT(Appeal_ID, N) where N is per-client). A single
+ * code can span many campaigns/years, so we pick the most recent campaign name
+ * as the label and sort codes by recency. Collapsing to one row per code
+ * prevents duplicate <option> values in the UI dropdown.
+ *
+ * @param {string} clientId
+ * @param {"backtest"|"test"|"match"} filterType
+ */
+export async function getAppealIds(clientId, filterType = "backtest") {
+  const pool = await getPool();
+
+  let whereClause;
+  switch (filterType) {
+    case "test":
+    case "match":
+      whereClause = "AND (Campaign_ID LIKE '%Test%' OR Campaign_ID LIKE '%Match Panel%')";
+      break;
+    default:
+      whereClause = "AND Camp_Type = 'Cultivation'";
+      break;
+  }
+
+  const codeLen = getAppealCodeLength(clientId);
+  const result = await pool.request()
+    .input("ClientID", sql.VarChar, clientId)
+    .query(`
+      SELECT AppealCode, CampaignName
+      FROM (
+        SELECT
+          LEFT(Appeal_ID, ${codeLen}) AS AppealCode,
+          Campaign_ID AS CampaignName,
+          ROW_NUMBER() OVER (PARTITION BY LEFT(Appeal_ID, ${codeLen}) ORDER BY InHome_Date DESC) AS rn,
+          MAX(InHome_Date) OVER (PARTITION BY LEFT(Appeal_ID, ${codeLen})) AS LastInHome
+        FROM c_jobs
+        WHERE Client_ID = @ClientID
+          ${whereClause}
+      ) t
+      WHERE rn = 1
+      ORDER BY LastInHome DESC
+    `);
+
+  return result.recordset;
 }
 
 /**
