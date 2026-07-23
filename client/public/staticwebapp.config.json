@@ -1,5 +1,6 @@
 {
   "auth": {
+    "rolesSource": "/api/roles",
     "identityProviders": {
       "azureActiveDirectory": {
         "registration": {
@@ -12,18 +13,26 @@
   },
   "routes": [
     {
+      "route": "/api/roles",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
       "route": "/api/*",
-      "allowedRoles": ["authenticated"]
+      "allowedRoles": ["member"]
     },
     {
       "route": "/*",
-      "allowedRoles": ["authenticated"]
+      "allowedRoles": ["member"]
     }
   ],
   "responseOverrides": {
     "401": {
       "redirect": "/.auth/login/aad",
       "statusCode": 302
+    },
+    "403": {
+      "rewrite": "/unauthorized.html",
+      "statusCode": 403
     }
   },
   "navigationFallback": {
